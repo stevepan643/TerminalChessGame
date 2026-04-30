@@ -1,0 +1,3 @@
+#include "tui.h"
+
+struct;

@@ -1,124 +1,132 @@
-#include <time.h>
-#include <math.h>
-#include <uchar.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <termios.h>
+#include "tui/tui.h"
+#include "chess_game.h"
+#include <stdbool.h>
+#include <string.h>
 
-#define FPS 30
-#define PERIOD_NS (1000000000L / FPS)
+typedef struct {
+	bool game_running;
+	ChessGameState game_state;
+	int buffer_len;
+	char buffer[256]; // 用于输入命令或显示消息
+} GameContext;
 
-#define W 62
-#define H 15
+void quit_callback(TUIKeyEvent *event, void *user_data) {
+	if (event->action == TUI_KEY_STATE_PRESS && event->key == TUI_KEY_ESCAPE) {
+		GameContext *game = (GameContext *)user_data;
+		game->game_running = false;
+	}
+	if (event->action == TUI_KEY_STATE_PRESS && (event->key <= TUI_KEY_Z && event->key >= TUI_KEY_A || event->key <= TUI_KEY_9 && event->key >= TUI_KEY_0)) {
+		GameContext *game = (GameContext *)user_data;
+		if (game->buffer_len < sizeof(game->buffer) - 1) {
+			char ch = (char)(event->key - TUI_KEY_A + 'a');
+			if (event->mods & TUI_MOD_SHIFT) {
+				ch = (char)(event->key - TUI_KEY_A + 'A');
+			} else if (event->key >= TUI_KEY_0 && event->key <= TUI_KEY_9) {
+				ch = (char)(event->key - TUI_KEY_0 + '0');
+				
+			}
+			game->buffer[game->buffer_len++] = ch;
+			game->buffer[game->buffer_len] = '\0';
+		}
+	}
+	if (event->action == TUI_KEY_STATE_PRESS && event->key == TUI_KEY_BACKSPACE) {
+		GameContext *game = (GameContext *)user_data;
+		if (game->buffer_len > 0) {
+			game->buffer[--game->buffer_len] = '\0';
+		}
+	}
+	if (event->action == TUI_KEY_STATE_PRESS && event->key == TUI_KEY_ENTER) {
+		GameContext *game = (GameContext *)user_data;
 
-#include "tui.h"
+		if (game->buffer_len > 0) {
+			ChessMove move;
 
-void draw_prob(float p)
-{
-    int level = (int)(p * 64.0f + 0.5f);
+			if (chess_parse_single_pgn(
+				&game->game_state,
+				game->buffer,
+				game->buffer_len,
+				&move))
+			{
+				chess_execute_move(&game->game_state, move);
+			}
 
-    for (int y = 0; y < 8; y++)
-    {
-        int threshold = (8 - y) * 8;
+			game->buffer_len = 0;
+			game->buffer[0] = '\0';
+		}
+	}
+}
 
-        if (level >= threshold)
-        {
-			set_pixel(20, y+1, (Cell){
-						U'█',
-						BLACK, {0, 255, 100}
-					});
+int main() {
+    TUIContext *ctx = tui_init();
+    tui_hide_cursor(ctx); // 隐藏光标
+
+	GameContext game = {0};
+    chess_game_init(&game.game_state); // 初始化棋盘
+
+	game.game_running = true;
+	tui_register_key_callback(ctx, quit_callback, &game);
+
+    while (game.game_running) {
+        tui_poll_events(ctx);
+
+        // ==========================================
+        // 核心新增：AI 回合驱动状态机
+        // ==========================================
+        if (game.game_state.active_turn == COLOR_BLACK) { // 假设人类执白，AI 执黑
+            TUISize size = tui_get_size(ctx);
+
+            // 1. 先强制渲染一次玩家刚刚落子后的新局面，并提示 AI 正在思考
+            tui_clear(ctx, 0x1E1E1E);
+            tui_put_string(ctx, (size.width - 19) / 2, 0, "Terminal Chess Game", 0xFFFFFF, 0x1E1E1E);
+            chess_game_render(ctx, &game.game_state, (size.width - 16) / 2, (size.height - 8) / 2);
+            tui_put_string(ctx, (size.width - 14) / 2, size.height - 1, "AI is thinking...", 0x00FFFF, 0x1E1E1E);
+            tui_present(ctx);
+
+            // 2. 人工思考延迟 (2秒)
+            tui_sleep_ms(2000);
+
+            // 3. 生成 AI 走法
+            ChessMove ai_move = chess_generate_ai_move(&game.game_state);
+
+            // 检查 AI 是否还有路可走
+            if (ai_move.from_x == 0 && ai_move.from_y == 0 && ai_move.to_x == 0 && ai_move.to_y == 0) {
+                // 这里代表黑方无子可动。至于是将死还是逼和，可以结合当前王是否被攻击来判断
+                game.game_running = false;
+            } else {
+                // 执行 AI 的走法。执行完后 active_turn 自动变回 COLOR_WHITE，下一帧又轮到人类输入
+                chess_execute_move(&game.game_state, ai_move);
+            }
+
+            // AI 走完后直接 continue 重新进入下一帧，把新的事件交还给人类
+            continue; 
         }
-        else if (level > (7 - y) * 8)
-        {
-            const char32_t blocks[] = {
-                U' ', U'▁', U'▂', U'▃',
-				U'▄', U'▅', U'▆', U'▇'
-            };
 
-            int sub = level % 8;
-			set_pixel(20, y+1, (Cell){
-						blocks[sub],
-						{60, 60, 60}, {0, 255, 100}
-					});
+        // ==========================================
+        // 以下为你原有的渲染与正常绘制逻辑（供人类回合使用）
+        // ==========================================
+        tui_clear(ctx, 0x1E1E1E);
+        TUISize size = tui_get_size(ctx);
+
+        if (size.width < 22 || size.height < 13) {
+            tui_put_string(ctx, 0, 0, "Please resize the terminal to at least 22x13", 0xFF0000, 0x1E1E1E);
+            tui_present(ctx);
+            continue;
         }
-        else
-        {
-			set_pixel(20, y+1, (Cell){
-						U'█',
-						BLACK, {60, 60, 60}
-					});
+
+        tui_put_string(ctx, (size.width - 19) / 2, 0, "Terminal Chess Game", 0xFFFFFF, 0x1E1E1E);
+        chess_game_render(ctx, &game.game_state, (size.width - 16) / 2, (size.height - 8) / 2); 
+        
+        if (game.buffer_len > 0) {
+            ChessMove move;
+            bool moveable = chess_parse_single_pgn(&game.game_state, game.buffer, game.buffer_len, &move);
+            tui_put_string(ctx, (size.width - game.buffer_len) / 2, size.height - 1, game.buffer, moveable ? 0x00FF00 : 0xAAAAAA, 0x1E1E1E);
+        } else {
+            tui_put_string(ctx, (size.width - 17) / 2, size.height - 1, "Press ESC to quit", 0xAAAAAA, 0x1E1E1E);
         }
+
+        tui_present(ctx);
     }
-}
 
-void draw_board()
-{
-	for (int y = 0; y < 8; y++)
-	{
-		set_ch(1, y + 1, (char32_t)('0' + 8 - y));
-		for (int x = 0; x < 8; x++)
-		{
-			bool is_white = (x + y) % 2;
-			int sc_x1 = 3 + x * 2;
-			int sc_x2 = 4 + x * 2;
-			int sc_y  = 1 + y;
-			if (!is_white)
-			{
-				set_pixel(sc_x1, sc_y, (Cell){
-							U' ',
-							{200, 200, 200},{0, 0, 0}});
-				set_pixel(sc_x2, sc_y, (Cell){
-							U' ',
-							{200, 200, 200},{0, 0, 0}});
-			}
-			else
-			{
-				set_pixel(sc_x1, sc_y, (Cell){
-							U' ',
-							{200, 128, 200},{0, 0, 0}});
-				set_pixel(sc_x2, sc_y, (Cell){
-							U' ',
-							{200, 128, 200},{0, 0, 0}});
-			}
-		}
-	}
-	draw_string(3, 9, U"a b c d e f g h", BLACK, WHITE);
-}
-
-int main()
-{
-	printf("\033[?1049h\033[?25l");
-	enable_raw_mode();
-
-	init_screen();
-	draw_board();
-	
-	float t = 0;
-	while (1)
-	{
-		struct timespec start, end;
-		clock_gettime(CLOCK_MONOTONIC, &start);
-
-		char c = 0;
-		read(STDIN_FILENO, &c, 1);
-		if (c == 'q') break;
-		float v = (sin(t) + 1) * 0.5;
-		t += 0.3;
-		draw_prob(v);
-		draw_frame();
-
-		clock_gettime(CLOCK_MONOTONIC, &end);
-		long cost = (end.tv_sec - start.tv_sec) *
-			1000000000L + (end.tv_nsec - start.tv_nsec);
-
-		long sleep_ns = PERIOD_NS - cost;
-		if (sleep_ns > 0)
-		{
-			struct timespec ts = {0, sleep_ns};
-			nanosleep(&ts, NULL);
-		}
-	}
-	printf("\033[?1049l\033[?25h");
+    tui_shutdown(ctx);
+    return 0;
 }

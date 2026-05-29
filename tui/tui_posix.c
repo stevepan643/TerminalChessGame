@@ -190,16 +190,6 @@ void tui_present(TUIContext *ctx) {
     memcpy(ctx->front_buffer, ctx->back_buffer, ctx->size.width * ctx->size.height * sizeof(TUICell));
 }
 
-TUISize tui_get_size(TUIContext *ctx) {
-    TUISize size = {0, 0};
-    if (ctx) {
-        resize_buffer_if_needed(ctx);
-        size.width = ctx->size.width;
-        size.height = ctx->size.height;
-    }
-    return size;
-}
-
 void tui_poll_events(TUIContext *ctx) {
     if (!ctx || !ctx->callback) return;
 

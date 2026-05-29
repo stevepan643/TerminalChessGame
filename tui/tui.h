@@ -1,12 +1,39 @@
+/*
+ * .___________.  ______   _______
+ * |           | /      | /  _____|
+ * `---|  |----`|  ,----'|  |  __
+ *     |  |     |  |     |  | |_ |
+ *     |  |     |  `----.|  |__| |
+ *     |__|      \______| \______|
+ * 
+ * TCG - Terminal Chess Game
+ * Copyright (c) 2026   Steve Pan
+ * 
+ * File: tui/tui.h
+ * 
+ * Description:
+ *      Header file for the Terminal User Interface (TUI) library.
+ *      Provides cross-platform APIs for rendering text-based 
+ *      graphics and handling keyboard input.
+ * 
+ * This file is part of TCG.
+ */
+
 #ifndef TCG_TUI_H
 #define TCG_TUI_H
 
-#include <stdint.h>
-#include <uchar.h>
+#include <stdint.h>     /* For uint32_t */
+#include <uchar.h>      /* For char32_t */
 
+/* Forward declaration of the TUI context structure */
 typedef struct TUIContext TUIContext;
+/* 
+ * Type definition for UI colors 
+ * Format: 0xRRGGBB (Red, Green, Blue components in hexadecimal)
+ */
 typedef uint32_t TUIColor;
 
+/* Type definition for key codes */
 typedef enum
 {
     TUI_KEY_UP, TUI_KEY_DOWN, TUI_KEY_LEFT, TUI_KEY_RIGHT,
@@ -26,6 +53,7 @@ typedef enum
     TUI_KEY_UNKNOWN
 } TUIKeyCode;
 
+/* Type definition for key actions */
 typedef enum
 {
     TUI_KEY_STATE_PRESS,
@@ -33,8 +61,10 @@ typedef enum
     TUI_KEY_STATE_REPEAT
 } TUIKeyAction;
 
+/* Type definition for key modifiers */
 typedef uint8_t TUIKeyMods;
 
+/* Key modifier flags */
 enum
 {
     TUI_MOD_CTRL  = 1 << 0,
@@ -42,6 +72,7 @@ enum
     TUI_MOD_SHIFT = 1 << 2
 };
 
+/* Type definition for key events */
 typedef struct
 {
     TUIKeyCode key;
@@ -49,8 +80,10 @@ typedef struct
     TUIKeyMods mods;
 } TUIKeyEvent;
 
+/* Type definition for key callback function */
 typedef void (TUIKeyCallback)(TUIKeyEvent *event, void *user_data);
 
+/* Type definition for a single UI cell */
 typedef struct {
     char32_t ch;
     TUIColor bg;
@@ -58,30 +91,87 @@ typedef struct {
     uint16_t flags;
 } TUICell;
 
+/* Cell flag definitions */
+#define TUI_CELL_BOLD         (1 << 0)  /* Bold */
+#define TUI_CELL_DIM          (1 << 1)  /* Dim */
+#define TUI_CELL_ITALIC       (1 << 2)  /* Italic */
+#define TUI_CELL_UNDERLINE    (1 << 3)  /* Underline */
+#define TUI_CELL_BLINK        (1 << 4)  /* Blink */
+#define TUI_CELL_REVERSE      (1 << 5)  /* Reverse */
+#define TUI_CELL_INVISIBLE    (1 << 6)  /* Invisible */
+
+/* Type definition for UI size */
 typedef struct
 {
     int width;
     int height;
 } TUISize;
 
+/*
+ * Initializes the TUI context.
+ * Returns a pointer to the initialized TUI context, or NULL on failure.
+ */
 TUIContext* tui_init(void);
-void tui_shutdown(TUIContext *ctx);
+/*
+ * Shuts down the TUI context.
+ * Frees all associated resources.
+ */
+void tui_shutdown(/* Not NULL */TUIContext *ctx);
 
-void tui_put_cell(TUIContext *ctx, int x, int y, char32_t ch, TUIColor fg, TUIColor bg);
-void tui_clear(TUIContext *ctx, TUIColor bg);
-void tui_present(TUIContext *ctx);
+/*
+ * Puts a single cell at the specified coordinates with the given character and colors.
+ */
+void tui_put_cell(/* Not NULL */TUIContext *ctx, int x, int y, char32_t ch, TUIColor fg, TUIColor bg, uint16_t flags); /**/
 
-void tui_put_string(TUIContext *ctx, int x, int y, const char *str, TUIColor fg, TUIColor bg);
+/*
+ * Clears the entire screen with the specified background color.
+ */
+void tui_clear(/* Not NULL */TUIContext *ctx, TUIColor bg);
 
-void tui_set_cursor(TUIContext *ctx, int x, int y);
-void tui_hide_cursor(TUIContext *ctx);
+/*
+ * Presents the current back buffer to the screen, performing dirty checking and double buffering.
+ */
+void tui_present(/* Not NULL */TUIContext *ctx);
 
-TUISize tui_get_size(TUIContext *ctx);
+/*
+ * Puts a null-terminated string starting at the specified coordinates with the given colors.
+ * TODO: Add flag parameter for text attributes (bold, underline, etc.) and support for UTF-32 input strings.
+ */
+void tui_put_string(/* Not NULL */TUIContext *ctx, int x, int y, /* Not NULL */const char *str/* Must end with a null terminator */, TUIColor fg, TUIColor bg);
 
-void tui_poll_events(TUIContext *ctx);
+/*
+ * Sets the cursor position.
+ */
+void tui_set_cursor(/* Not NULL */TUIContext *ctx, int x, int y);
 
-void tui_register_key_callback(TUIContext *ctx, TUIKeyCallback callback, void *user_data);
+/*
+ * Hides the cursor.
+ */
+void tui_hide_cursor(/* Not NULL */TUIContext *ctx);
 
+/*
+ * Shows the cursor.
+ */
+void tui_show_cursor(/* Not NULL */TUIContext *ctx);
+
+/*
+ * Gets the size of the TUI.
+ */
+TUISize tui_get_size(/* Not NULL */TUIContext *ctx);
+
+/*
+ * Polls for events.
+ */
+void tui_poll_events(/* Not NULL */TUIContext *ctx);
+
+/*
+ * Registers a key callback function.
+ */
+void tui_register_key_callback(/* Not NULL */TUIContext *ctx, TUIKeyCallback callback, void *user_data);
+
+/*
+ * Sleeps for the specified number of milliseconds.
+ */
 void tui_sleep_ms(int milliseconds);
 
 #endif /* TCG_TUI_H */

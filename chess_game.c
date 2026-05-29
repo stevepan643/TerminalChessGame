@@ -78,9 +78,9 @@ void chess_game_render(TUIContext *ctx, ChessGameState *state, int start_x, int 
             int tui_y = start_y + r;
 
             // 渲染棋子（左侧放置棋子字符，右侧用空格填充以凑足 2 个字符的宽度）
-            tui_put_cell(ctx, tui_x,     tui_y, p_char, fg, bg);
-            tui_put_cell(ctx, tui_x + 1, tui_y, 0xFE0E,    fg, bg);
-            tui_put_cell(ctx, tui_x + 1, tui_y, ' ',    fg, bg);
+            tui_put_cell(ctx, tui_x,     tui_y, p_char, fg, bg, 0);
+            tui_put_cell(ctx, tui_x + 1, tui_y, 0xFE0E,    fg, bg, 0);
+            tui_put_cell(ctx, tui_x + 1, tui_y, ' ',    fg, bg, 0);
         }
     }
 

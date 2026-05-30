@@ -1,3 +1,22 @@
+/*
+ * .___________.  ______   _______
+ * |           | /      | /  _____|
+ * `---|  |----`|  ,----'|  |  __
+ *     |  |     |  |     |  | |_ |
+ *     |  |     |  `----.|  |__| |
+ *     |__|      \______| \______|
+ * 
+ * TCG - Terminal Chess Game
+ * Copyright (c) 2026   Steve Pan
+ * 
+ * File: tui/tui_posix.c
+ * 
+ * Description:
+ *      POSIX-specific implementation of the Terminal User Interface (TUI) library.
+ * 
+ * This file is part of TCG.
+ */
+
 #include "tui.h"
 
 #include <stdio.h>
@@ -290,6 +309,8 @@ void tui_poll_events(TUIContext *ctx) {
                 mods |= TUI_MOD_SHIFT;
             } else if (ch >= '0' && ch <= '9') {
                 code = (TUIKeyCode)(TUI_KEY_0 + (ch - '0'));
+            } else if (ch == '-') {
+                code = TUI_KEY_MINUS;
             }
             i += 1;
         }

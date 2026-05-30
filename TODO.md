@@ -4,7 +4,7 @@
 [ ] Save and load PGN
 [ ] Screen system (menu/game/settings/save/load)
 [ ] Input command system (deferred execution)
-[ ] Better code structure
+[x] Better code structure
 [ ] Better chess AI
 [ ] Position evaluation system
 [ ] Start screen

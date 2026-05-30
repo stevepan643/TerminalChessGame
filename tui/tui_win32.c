@@ -257,6 +257,7 @@ void tui_poll_events(TUIContext *ctx) {
                         case VK_CAPITAL:   code = TUI_KEY_CAPS_LOCK; break;
                         case VK_NUMLOCK:   code = TUI_KEY_NUM_LOCK; break;
                         case VK_SCROLL:    code = TUI_KEY_SCROLL_LOCK; break;
+                        case VK_OEM_MINUS: code = TUI_KEY_MINUS; break;
                         default:           code = TUI_KEY_UNKNOWN; break;
                     }
                 }
